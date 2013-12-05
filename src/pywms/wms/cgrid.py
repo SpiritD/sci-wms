@@ -75,7 +75,16 @@ def getvar(datasetnc, t, layer, variables, index):
             #ncvar1.set_auto_maskandscale(False)
             var1 = ncvar1[t, [layer], ind, jnd]
         elif len(shp) == 3:
-            var1 = ncvar1[t, ind, jnd]
+            if "SSMI" in datasetnc.short_name:
+                import ipdb
+                ipdb.set_trace()
+                nn = ncvar1[:].data
+                nn1 = nn[ind]
+                nn2 = nn1[:, jnd]
+                var1 = nn2[:, :, t]
+                # var1 = ncvar1[:].data[jnd, ind, t]
+            else:
+                var1 = ncvar1[t, ind, jnd]
         elif len(shp) == 2:
             var1 = ncvar1[ind, jnd]
         if type(var1) == np.ndarray:

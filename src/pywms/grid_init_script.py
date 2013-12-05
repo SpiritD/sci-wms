@@ -241,11 +241,19 @@ def create_topology(dataset_name, url, lat_var='lat', lon_var='lon'):
                 grid = 'rgrid'
                 igrid = nc.variables[latname].shape[0]
                 jgrid = nc.variables[lonname].shape[0]
+
+            # if "SSMI" in nc.short_name:
+            #     latchunk, lonchunk = (igrid,), (jgrid,)
+            # else:
             latchunk, lonchunk = (igrid,jgrid,), (igrid,jgrid,)
             logger.info("native grid style identified")
             nclocal.createDimension('igrid', igrid)
             nclocal.createDimension('jgrid', jgrid)
-            if nc.variables.has_key("time"):
+
+            if "SSMI" in nc.short_name:
+                nclocal.createDimension('time', 1)
+                time = nclocal.createVariable('time', 'f8', ('time',), chunksizes=(1,), zlib=False, complevel=0)
+            elif nc.variables.has_key("time"):
                 nclocal.createDimension('time', nc.variables['time'].shape[0])
                 if nc.variables['time'].ndim > 1:
                     time = nclocal.createVariable('time', 'f8', ('time',), chunksizes=(nc.variables['time'].shape[0],), zlib=False, complevel=0)
@@ -267,19 +275,29 @@ def create_topology(dataset_name, url, lat_var='lat', lon_var='lon'):
             else:
                 lon[:] = lontemp
                 lat[:] = nc.variables[latname][:]
+
+            # if "SSMI" in nc.short_name:
+            #     file_date_srt = nc.original_filename[nc.original_filename.index('_')+1:9+nc.original_filename.index('_')]
+
             if nc.variables.has_key("time"):
                 if nc.variables['time'].ndim > 1:
-                    _str_data = nc.variables['time'][:,:]
-                    #print _str_data.shape, type(_str_data), "''", str(_str_data[0,:].tostring().replace(" ","")), "''"
-                    dates = [parse(_str_data[i, :].tostring()) for i in range(len(_str_data[:,0]))]
-                    time[:] = date2num(dates, time_units)
-                    time.units = time_units
+                    if "SSMI" in nc.short_name:
+                        time[:] = np.ones(1)
+                        time.units = time_units
+                    else:
+                        _str_data = nc.variables['time'][:,:]
+                        #print _str_data.shape, type(_str_data), "''", str(_str_data[0,:].tostring().replace(" ","")), "''"
+                        dates = [parse(_str_data[i, :].tostring()) for i in range(len(_str_data[:,0]))]
+                        # @param dates: A datetime object or a sequence of datetime objects.
+                        time[:] = date2num(dates, time_units)
+                        time.units = time_units
                 else:
                     time[:] = nc.variables['time'][:]
                     time.units = nc.variables['time'].units
             else:
                 time[:] = np.ones(1)
                 time.units = time_units
+
             logger.info("data written to file")
             while not 'grid' in nclocal.ncattrs():
                 nclocal.__setattr__('grid', 'cgrid')
@@ -287,7 +305,7 @@ def create_topology(dataset_name, url, lat_var='lat', lon_var='lon'):
             nclocal.sync()
             nclocal.close()
             nc.close()
-        
+
         shutil.move(nclocalpath, nclocalpath.replace(".updating", ""))
         if not ((os.path.exists(nclocalpath.replace(".updating", "").replace(".nc",'_nodes.dat')) and os.path.exists(nclocalpath.replace(".updating", "").replace(".nc","_nodes.idx")))):
             #with s1:

@@ -1358,7 +1358,7 @@ def getMap (request, dataset):
             if gridtype == 'cgrid':
                 index = numpy.asarray(index)
                 var1, var2 = cgrid.getvar(datasetnc, t, layer, variables, index)
-            
+
             if latmin != latmax: # TODO: REMOVE THIS CHECK ALREADY DONE ABOVE
                 if gridtype == 'False': # TODO: Should take a look at this
                     # This is averaging in time over all timesteps downloaded
