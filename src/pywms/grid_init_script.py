@@ -242,17 +242,19 @@ def create_topology(dataset_name, url, lat_var='lat', lon_var='lon'):
                 igrid = nc.variables[latname].shape[0]
                 jgrid = nc.variables[lonname].shape[0]
 
-            # if "SSMI" in nc.short_name:
-            #     latchunk, lonchunk = (igrid,), (jgrid,)
-            # else:
-            latchunk, lonchunk = (igrid,jgrid,), (igrid,jgrid,)
-            logger.info("native grid style identified")
-            nclocal.createDimension('igrid', igrid)
-            nclocal.createDimension('jgrid', jgrid)
+            if "SSMI" in nc.short_name:
+                latchunk, lonchunk = (igrid,), (jgrid,)
+                nclocal.createDimension('lat', igrid)
+                nclocal.createDimension('lon', jgrid)
+            else:
+                latchunk, lonchunk = (igrid,jgrid,), (igrid,jgrid,)
+                logger.info("native grid style identified")
+                nclocal.createDimension('igrid', igrid)
+                nclocal.createDimension('jgrid', jgrid)
 
             if "SSMI" in nc.short_name:
-                nclocal.createDimension('time', 1)
-                time = nclocal.createVariable('time', 'f8', ('time',), chunksizes=(1,), zlib=False, complevel=0)
+                nclocal.createDimension('part_of_day', 2)
+                time = nclocal.createVariable('time', 'f8', ('lon', 'lat', 'part_of_day',), chunksizes=(jgrid, igrid, 2), zlib=False, complevel=0)
             elif nc.variables.has_key("time"):
                 nclocal.createDimension('time', nc.variables['time'].shape[0])
                 if nc.variables['time'].ndim > 1:
@@ -263,8 +265,13 @@ def create_topology(dataset_name, url, lat_var='lat', lon_var='lon'):
                 nclocal.createDimension('time', 1)
                 time = nclocal.createVariable('time', 'f8', ('time',), chunksizes=(1,), zlib=False, complevel=0)
 
-            lat = nclocal.createVariable('lat', 'f', ('igrid','jgrid',), chunksizes=latchunk, zlib=False, complevel=0)
-            lon = nclocal.createVariable('lon', 'f', ('igrid','jgrid',), chunksizes=lonchunk, zlib=False, complevel=0)
+            if "SSMI" in nc.short_name:
+                lat = nclocal.createVariable('lat', 'f', ('lat',), chunksizes=latchunk, zlib=False, complevel=0)
+                lon = nclocal.createVariable('lon', 'f', ('lon',), chunksizes=lonchunk, zlib=False, complevel=0)
+                grid = 'cgrid'
+            else:
+                lat = nclocal.createVariable('lat', 'f', ('igrid','jgrid',), chunksizes=latchunk, zlib=False, complevel=0)
+                lon = nclocal.createVariable('lon', 'f', ('igrid','jgrid',), chunksizes=lonchunk, zlib=False, complevel=0)
             logger.info("variables created in cache")
             lontemp = nc.variables[lonname][:]
             lontemp[lontemp > 180] = lontemp[lontemp > 180] - 360
@@ -282,7 +289,7 @@ def create_topology(dataset_name, url, lat_var='lat', lon_var='lon'):
             if nc.variables.has_key("time"):
                 if nc.variables['time'].ndim > 1:
                     if "SSMI" in nc.short_name:
-                        time[:] = np.ones(1)
+                        time[:] = nc.variables['time'][:]
                         time.units = time_units
                     else:
                         _str_data = nc.variables['time'][:,:]

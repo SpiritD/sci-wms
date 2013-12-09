@@ -25,11 +25,16 @@ from matplotlib.mlab import griddata
 import ugrid
 import time as timeobj
 
-def subset(latmin, lonmin, latmax, lonmax, lat, lon):
+def subset(latmin, lonmin, latmax, lonmax, lat, lon, short_name = None):
     #t1 = timeobj.time()
     latbool = (lat <= latmax+.18) & (lat >= latmin-.18)
     lonbool = (lon <= lonmax+.18) & (lon >= lonmin-.18)
-    index = np.asarray(np.where(latbool & lonbool)).squeeze()
+    if 'SSMI' in short_name:
+        ltbool = latbool.reshape(720, 1)
+        lnbool = lonbool.reshape(1, 1440)
+        index = np.asarray(np.where(ltbool & lnbool)).squeeze()
+    else:
+        index = np.asarray(np.where(latbool & lonbool)).squeeze()
         #((lat <= latmax) == (lat >= latmin)) ==
         #((lon <= lonmax) == (lon >= lonmin),))).squeeze()
     #if (lonmax > 0) & (lonmin < 0):
@@ -38,8 +43,12 @@ def subset(latmin, lonmin, latmax, lonmax, lat, lon):
     if index.shape[1] > 0:
         ind = np.asarray(range(np.min(np.min(index[0])),np.max(np.max(index[0]))+1))
         jnd = np.asarray(range(np.min(np.min(index[1])),np.max(np.max(index[1]))+1))
-        lat = lat[ind[0]:ind[-1], jnd[0]:jnd[-1]]
-        lon = lon[ind[0]:ind[-1], jnd[0]:jnd[-1]]
+        if 'SSMI' in short_name:
+            lat = lat[ind[0]:ind[-1]]
+            lon = lon[jnd[0]:jnd[-1]]
+        else:
+            lat = lat[ind[0]:ind[-1], jnd[0]:jnd[-1]]
+            lon = lon[ind[0]:ind[-1], jnd[0]:jnd[-1]]
     else:
         index = None
         lat = np.asarray([[],[]])
@@ -76,11 +85,9 @@ def getvar(datasetnc, t, layer, variables, index):
             var1 = ncvar1[t, [layer], ind, jnd]
         elif len(shp) == 3:
             if "SSMI" in datasetnc.short_name:
-                import ipdb
-                ipdb.set_trace()
                 nn = ncvar1[:].data
-                nn1 = nn[ind]
-                nn2 = nn1[:, jnd]
+                nn1 = nn[jnd]
+                nn2 = nn1[:, ind]
                 var1 = nn2[:, :, t]
                 # var1 = ncvar1[:].data[jnd, ind, t]
             else:
@@ -228,8 +235,12 @@ def plot(lon, lat, var1, var2, actions, ax, fig, **kwargs):
     #print str(timeobj.time()-t1) + " plot"
 
 def composite(lon, lat, mag, ax, cmin, cmax, cmap, m, fig, lonmin, latmin, lonmax, latmax, projection, height, width):
-    mag = np.transpose(mag, axes=(1,2,0)).astype(float)
-    mag[:,:,0:3] = mag[:,:,0:3] / 255.
+    if len(mag.shape) == 2:
+        mag = np.transpose(mag, axes=(0,1)).astype(float)
+        mag[:,:] = mag[:,:] / 255.
+    else:
+        mag = np.transpose(mag, axes=(1,2,0)).astype(float)
+        mag[:,:,0:3] = mag[:,:,0:3] / 255.
     lonmax, latmax = m(lonmax, latmax)
     lonmin, latmin = m(lonmin, latmin)
     #print m.llcrnry, m.llcrnrx, m.urcrnry, m.urcrnrx, mag[:,:,1].max().max(), mag[:,:,1].min().min() 
@@ -270,7 +281,10 @@ def fcontour(lon, lat, mag, ax, norm, cmin, cmax, cmap):
         levs = np.arange(1, 12)*(cmax-cmin)/10
         levs = np.hstack(([-99999], levs, [99999]))
     shp = lon.shape
-    ax.contourf(lon, lat, mag, norm=norm, levels=levs, antialiased=True, linewidth=2, cmap=cmap)
+    try:
+        ax.contourf(lon, lat, mag, norm=norm, levels=levs, antialiased=True, linewidth=2, cmap=cmap)
+    except:
+        ax.contourf(lon, lat, mag.T, norm=norm, levels=levs, antialiased=True, linewidth=2, cmap=cmap)
 
 def contour(lon, lat, mag, ax, norm, cmin, cmax, cmap):
     if (cmin == "None") or (cmax == "None"):

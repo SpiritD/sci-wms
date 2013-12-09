@@ -1294,7 +1294,10 @@ def getMap (request, dataset):
             lat = topology.variables[toplatc][:]
             if gridtype != 'False':
                 if gridtype == 'cgrid':
-                    index, lat, lon = cgrid.subset(latmin, lonmin, latmax, lonmax, lat, lon)
+                    if 'SSMI' in datasetnc.short_name:
+                        index, lat, lon = cgrid.subset(latmin, lonmin, latmax, lonmax, lat, lon, datasetnc.short_name)
+                    else:
+                        index, lat, lon = cgrid.subset(latmin, lonmin, latmax, lonmax, lat, lon)
             else:
                 index, lat, lon = ugrid.subset(latmin, lonmin, latmax, lonmax, lat, lon)
 
@@ -1331,14 +1334,18 @@ def getMap (request, dataset):
             times = topology.variables['time'][:]
             datestart = datetime.datetime.strptime( datestart, "%Y-%m-%dT%H:%M:%S" ) # datestr --> datetime obj
             datestart = netCDF4.date2num(datestart, units=topology.variables['time'].units) # datetime obj --> netcdf datenum
-            time = bisect.bisect_right(times, datestart) - 1
+
+            if 'SSMI' in datasetnc.short_name:
+                time = [0]
+            else:
+                time = bisect.bisect_right(times, datestart) - 1
             if config.localdataset:
                 time = [1]
             elif time == -1:
                 time = [0]
             else:
                 time = [time]
-            if dateend != datestart:
+            if dateend != datestart and not 'SSMI' in datasetnc.short_name:
                 dateend = datetime.datetime.strptime( dateend, "%Y-%m-%dT%H:%M:%S" ) # datestr --> datetime obj
                 dateend = netCDF4.date2num(dateend, units=topology.variables['time'].units) # datetime obj --> netcdf datenum
                 time.append(bisect.bisect_right(times, dateend) - 1)
@@ -1438,7 +1445,8 @@ def getMap (request, dataset):
                                                         )
                 # Plot to the projected figure axes!
                 if gridtype == 'cgrid':
-                    lon, lat = m(lon, lat)
+                    ln, lt = numpy.meshgrid(lon, lat)
+                    lon, lat = m(ln, lt)
                     cgrid.plot(lon, lat, var1, var2, actions, m.ax, fig,
                                 aspect = m.aspect,
                                 height = height,
@@ -1455,6 +1463,8 @@ def getMap (request, dataset):
                                 latmax = latmax,
                                 projection = projection)
                 elif gridtype == 'False':
+                    lon, lat = numpy.meshgrid(lon, lat)
+                    lonn, latn, nv = None, None, None
                     fig, m = ugrid.plot(lon, lat, lonn, latn, nv, var1, var2, actions, m, m.ax, fig,
                                         aspect = m.aspect,
                                         height = height,
