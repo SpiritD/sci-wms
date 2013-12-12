@@ -37,8 +37,19 @@ def build_from_nc(filename):
                     c += 1
                     yield(c, coord, ((row,), (col,)))
 
+        def generator_ssmi_nodes():
+            c = -1
+            for row in range(lat.shape[0]):
+                for col in range(lon.shape[0]):
+                    coord = (lon[col], lat[row],lon[col], lat[row],)
+                    c += 1
+                    yield(c, coord, ((row,), (col,)))
+
         filename = filename[:-3]
-        tree = index.Index(filename+'_nodes', generator_nodes(), overwrite=True)
+        if 'ssmi_topology' in filename:
+            tree = index.Index(filename+'_nodes', generator_ssmi_nodes(), overwrite=True)
+        else:
+            tree = index.Index(filename+'_nodes', generator_nodes(), overwrite=True)
         #print (datetime.now()-timer).seconds # How long did it take to add the points
         tree.close()
     else:

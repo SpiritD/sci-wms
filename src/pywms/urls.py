@@ -28,6 +28,8 @@ urlpatterns = patterns('',
     url(r'^doc', 'wms.views.documentation'),
     url(r'^wms/(?P<dataset>.*)/', 'wms.views.wms'),
 
+    url(r'^wmstest/ssmi/(?P<unixtime>.*)', 'wms.views.init_ssmi_datasets'),
+
     url(r'^wmstest/openlayers/(?P<filepath>.*)', 'wms.views.openlayers'),
     url(r'^wmstest/', 'wms.views.wmstest'),
     url(r'^wmstest', 'wms.views.wmstest'),

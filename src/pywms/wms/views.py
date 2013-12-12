@@ -317,7 +317,7 @@ def database_request_interaction (request, dataset):
         vlayer = VirtualLayer.objects.filter(datasets__name=dataset).filter(layer = request.GET['layers'])
         request.GET['layers'] = vlayer[0].layer_expression
     return request
-            
+
 def wms (request, dataset):
     try:
         request = lower_request(request)
@@ -1199,6 +1199,8 @@ def getFeatureInfo(request, dataset):
     topology.close()
     return response
 
+import re
+ssmi_extensions = re.compile(r".*f[0-9]{2}_[0-9]{6,8}[0-9a-z]{2}(_d3d)?(\.gz)?$", re.IGNORECASE)
 def getMap (request, dataset):
     '''
     the meat and bones of getMap
@@ -1263,6 +1265,10 @@ def getMap (request, dataset):
     if "kml" in actions: # TODO: REMOVE THIS!
         pass
     else:
+
+        if ssmi_extensions.match(dataset):
+            dataset = 'ssmi_topology'
+
         # Open topology cache file, and the actualy data endpoint
         topology = netCDF4.Dataset(os.path.join(config.topologypath, dataset + '.nc'))
         datasetnc = netCDF4.Dataset(url)
@@ -1362,7 +1368,7 @@ def getMap (request, dataset):
             # Get the data and appropriate resulting shape from the data source
             if gridtype == 'False':
                 var1, var2 = ugrid.getvar(datasetnc, t, layer, variables, index)
-            if gridtype == 'cgrid':
+            elif gridtype == 'cgrid':
                 index = numpy.asarray(index)
                 var1, var2 = cgrid.getvar(datasetnc, t, layer, variables, index)
 
@@ -1511,4 +1517,44 @@ def getMap (request, dataset):
     #logger.info(str(loglist))
     return response
 
+from xml.dom.minidom import *
+import urllib
 
+ssmi_instr_list = ['f08', 'f10', 'f11', 'f13', 'f14', 'f15', 'f16', 'f17']
+def init_ssmi_datasets(request, unixtime):
+    try:
+        unixtime = float(unixtime)
+    except:
+        HttpResponse("unixtime must be float", content_type="text/plain")
+    current_datetime = datetime.datetime.utcfromtimestamp(unixtime)
+    year = str(current_datetime.year)
+    month = '%.2d' %current_datetime.month
+    day = '%.2d' %current_datetime.day
+
+    server_path = 'http://posada.solab.rshu.ru'
+    ssmi_folders_url = '%s/pydap/public/allData/SSMI/' % server_path
+
+    datasets_list = []
+
+    for ssmi_instr in ssmi_instr_list:
+        ssmi_instr_folder = ssmi_folders_url + "%s/bmaps_v07/" %ssmi_instr
+        instr_xml = parse(urllib.urlopen(ssmi_instr_folder + 'catalog.xml'))
+        instr_folders = instr_xml.getElementsByTagName('catalogRef')
+
+        for instr_folder in instr_folders:
+            if year in instr_folder.attributes['name'].value:
+                year_xml = parse(urllib.urlopen(instr_folder.attributes['xlink:href'].value))
+                year_folders = year_xml.getElementsByTagName('catalogRef')
+
+                for month_folder in year_folders:
+                    if month in month_folder.attributes['name'].value:
+                        current_dir = month_folder.attributes['xlink:href'].value
+                        if current_dir.find('catalog.xml') > 0:
+                            current_dir = current_dir[:current_dir.find('catalog.xml')]
+
+                        dateset_url = current_dir + ssmi_instr + '_' + year + month + day + 'v7.gz'
+                        datasets_list.append(dateset_url)
+
+    response = HttpResponse("count = " + str(len(datasets_list)) + ' ' + ' '.join(datasets_list), content_type="text/plain")
+    # response.write('test')
+    return response

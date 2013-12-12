@@ -25,6 +25,9 @@ from matplotlib.mlab import griddata
 import ugrid
 import time as timeobj
 
+import numpy.ma as ma
+from numpy import logical_or
+
 def subset(latmin, lonmin, latmax, lonmax, lat, lon, short_name = None):
     #t1 = timeobj.time()
     latbool = (lat <= latmax+.18) & (lat >= latmin-.18)
@@ -96,6 +99,16 @@ def getvar(datasetnc, t, layer, variables, index):
             var1 = ncvar1[ind, jnd]
         if type(var1) == np.ndarray:
             var1 = var1.squeeze()
+
+        if "SSMI" in datasetnc.short_name:
+            var_scale_factor = ncvar1.scale_factor
+            var_add_offset = ncvar1.add_offset
+            var_fill_value = ncvar1._FillValue
+
+            var1 = ma.masked_where(logical_or((var1 - var_add_offset)/float(var_scale_factor) > 250, var1 is None), var1)
+                   # * var_scale_factor + var_add_offset
+            # var1 = ma.masked_where(logical_or(((var1 - var_add_offset)/float(var_scale_factor) == ice_fill_value, var1 is None), var1) \
+            #        * var_scale_factor + var_add_offset
 
         if len(variables) > 1: # Check if request came with more than 1 var
             ncvar2 = datasetnc.variables[variables[1]]

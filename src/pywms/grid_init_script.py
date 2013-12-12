@@ -74,8 +74,15 @@ def init_dataset_topology(dataset_name):
 def create_topology(dataset_name, url, lat_var='lat', lon_var='lon'):
     try:
         #with s1:
-        nclocalpath = os.path.join(config.topologypath, dataset_name+".nc.updating")
         nc = ncDataset(url)
+        if "SSMI" in nc.short_name:
+            dataset_name = 'ssmi_topology'
+            if os.path.isfile(os.path.join(config.topologypath, dataset_name+".nc")):
+                return
+
+        nclocalpath = os.path.join(config.topologypath, dataset_name+".nc.updating")
+
+
         nclocal = ncDataset(nclocalpath, mode="w", clobber=True)
         if nc.variables.has_key("nv"):
             logger.info("identified as fvcom")
